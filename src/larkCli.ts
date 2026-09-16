@@ -59,12 +59,12 @@ function friendlyError(env: LarkCliEnvelope): string {
   const base = err.message ?? "lark-cli 调用失败";
   const type = `${err.type ?? ""}${err.subtype ? `/${err.subtype}` : ""}`;
   const suffix = type ? `[${type}] ` : "";
-  // 未登录/凭证过期时给出可操作的登录指引
+  // 未登录/凭证过期时提示需重新授权（具体修复指引由上层附加授权链接）
   const authHint =
     /unauthorized|token|authentication|not.?logged|login|credential|permission|forbidden|scope/i.test(
       `${type} ${base}`,
     )
-      ? "\n提示：请先在部署机上完成 lark-cli 登录：`lark-cli config init`，然后 `lark-cli auth login --domain docs,drive,base,sheets`；可用 `lark-cli auth status` 查看状态。"
+      ? "\n（飞书用户授权可能已失效，需要重新授权。）"
       : "";
   return `${suffix}${base}${authHint}`;
 }

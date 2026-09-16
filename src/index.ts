@@ -5,6 +5,7 @@
  */
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { getLoginUrl, isAuthError } from "./authFlow.js";
 import { loadConfig } from "./config.js";
 import { startHttpServer } from "./httpServer.js";
 import { LarkCliError } from "./larkCli.js";
@@ -49,8 +50,16 @@ export function createServer(): McpServer {
             err instanceof LarkCliError || err instanceof Error
               ? err.message
               : String(err);
+          let text = `操作失败：${message}`;
+          // 飞书授权失效时自动生成重新授权链接，用户浏览器确认即可恢复，无需登录服务器
+          if (isAuthError(message)) {
+            const url = await getLoginUrl().catch(() => undefined);
+            text += url
+              ? `\n\n🔁 检测到飞书授权失效。请用浏览器打开以下链接重新授权（10 分钟内有效）：\n${url}\n确认后等待几秒再重试本操作即可，无需登录服务器。`
+              : `\n\n检测到飞书授权失效，自动生成授权链接失败。请在服务器上执行：lark-cli auth login --domain docs,drive,base,sheets`;
+          }
           return {
-            content: [{ type: "text" as const, text: `操作失败：${message}` }],
+            content: [{ type: "text" as const, text }],
             isError: true,
           };
         }

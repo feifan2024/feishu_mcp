@@ -4,6 +4,7 @@
  */
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { getLoginUrl } from "../authFlow.js";
 import { runLarkCli } from "../larkCli.js";
 import { jsonResult, type ToolDef } from "./types.js";
 import { z } from "zod";
@@ -54,18 +55,24 @@ export const checkAuthTool: ToolDef = {
     }
 
     if (!status) {
+      const url = await getLoginUrl().catch(() => undefined);
       return jsonResult({
         installed: true,
         version,
         logged_in: false,
         status_error: statusError,
         raw: statusRaw || undefined,
-        fix: "运行 `lark-cli config init` 初始化应用，然后 `lark-cli auth login --domain docs,drive,base,sheets` 完成用户授权。",
+        login_url: url,
+        fix: url
+          ? "用户授权缺失或失效。用浏览器打开 login_url 完成授权（10 分钟内有效），无需登录服务器。"
+          : "用户授权缺失或失效，自动生成授权链接失败。请在服务器上执行：lark-cli config init && lark-cli auth login --domain docs,drive,base,sheets。",
       });
     }
 
     const user = status.identities?.user;
     const bot = status.identities?.bot;
+    const userNeedsLogin = !user || (user.status !== "ready" && user.status !== "needs_refresh");
+    const loginUrl = userNeedsLogin ? await getLoginUrl().catch(() => undefined) : undefined;
     return jsonResult({
       installed: true,
       version,
@@ -83,10 +90,12 @@ export const checkAuthTool: ToolDef = {
         : undefined,
       bot_identity: bot ? { status: bot.status, available: bot.available } : undefined,
       note: status.note,
-      fix_hint:
-        user?.status && user.status !== "ready"
-          ? "用户凭证需要刷新或重新登录：运行 `lark-cli auth login --domain docs,drive,base,sheets`。"
-          : undefined,
+      login_url: loginUrl,
+      fix_hint: userNeedsLogin
+        ? loginUrl
+          ? "用户授权缺失或已失效。用浏览器打开 login_url 完成授权（10 分钟内有效），无需登录服务器。"
+          : "用户授权缺失或已失效，自动生成授权链接失败。请在服务器上执行：lark-cli auth login --domain docs,drive,base,sheets。"
+        : undefined,
     });
   },
 };
