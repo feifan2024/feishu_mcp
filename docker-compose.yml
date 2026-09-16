@@ -1,0 +1,25 @@
+services:
+  feishu-mcp:
+    build: .
+    container_name: feishu-mcp
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      MCP_TRANSPORT: http
+      MCP_HTTP_HOST: 0.0.0.0
+      MCP_HTTP_PORT: "3000"
+      # Bearer 鉴权 token（必填！生成方式：openssl rand -hex 32）
+      MCP_HTTP_TOKEN: "change-me-to-a-long-random-token"
+      # 可选：多 profile / 身份 / 超时
+      # LARK_PROFILE: ""
+      LARK_IDENTITY: user
+      LARK_TIMEOUT_MS: "120000"
+    volumes:
+      # 持久化 lark-cli 配置与凭证（首次启动后进容器执行登录，见 README）
+      - lark-cli-config:/home/node/.lark-cli
+      # 可选：JSON 配置文件（不使用环境变量时）
+      # - ./feishu-mcp.config.json:/home/node/.feishu-mcp/config.json:ro
+
+volumes:
+  lark-cli-config:

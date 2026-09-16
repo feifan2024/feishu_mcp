@@ -1,0 +1,21 @@
+# feishu-mcp systemd 服务单元
+# 安装：
+#   sudo cp deploy/feishu-mcp.service /etc/systemd/system/
+#   sudo cp deploy/feishu-mcp.env /opt/feishu-mcp/deploy/   # 按需修改
+#   sudo systemctl daemon-reload && sudo systemctl enable --now feishu-mcp
+[Unit]
+Description=Feishu MCP Server (lark-cli connector)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# 部署路径按实际情况修改
+WorkingDirectory=/opt/feishu-mcp
+ExecStart=/usr/bin/node /opt/feishu-mcp/dist/index.js
+Restart=on-failure
+RestartSec=5
+EnvironmentFile=/opt/feishu-mcp/deploy/feishu-mcp.env
+
+[Install]
+WantedBy=multi-user.target
