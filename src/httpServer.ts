@@ -11,11 +11,15 @@ import { parseHttpTokens, type FeishuMcpConfig } from "./config.js";
 
 const MCP_PATH = "/mcp";
 
-function authorize(req: http.IncomingMessage, validTokens: string[]): boolean {
+function authorize(req: http.IncomingMessage, validTokens: string[], url: URL): boolean {
+  // 首选：Authorization: Bearer 头
   const header = req.headers.authorization ?? "";
   const match = /^Bearer\s+(.+)$/i.exec(header);
-  if (!match) return false;
-  return validTokens.includes(match[1].trim());
+  if (match && validTokens.includes(match[1].trim())) return true;
+  // 兼容：不支持自定义请求头的客户端（如 ChatGPT 连接器）用 URL 查询参数 ?token=
+  const q = url.searchParams.get("token") ?? url.searchParams.get("access_token");
+  if (q && validTokens.includes(q.trim())) return true;
+  return false;
 }
 
 function readBody(req: http.IncomingMessage, maxBytes = 5 * 1024 * 1024): Promise<string> {
@@ -59,7 +63,7 @@ export async function startHttpServer(server: McpServer, config: FeishuMcpConfig
             authorization_servers: [],
             scopes_supported: ["feishu:read", "feishu:write"],
             bearer_methods_supported: ["header"],
-            resource_documentation: "Static Bearer token auth: configure 'Authorization: Bearer <MCP_HTTP_TOKEN>' header in your MCP client.",
+            resource_documentation: "Auth via 'Authorization: Bearer <MCP_HTTP_TOKEN>' header, or URL query '?token=<MCP_HTTP_TOKEN>' for clients that cannot set headers (e.g. ChatGPT connectors).",
           }),
         );
         return;
@@ -71,7 +75,7 @@ export async function startHttpServer(server: McpServer, config: FeishuMcpConfig
         return;
       }
 
-      if (!authorize(req, validTokens)) {
+      if (!authorize(req, validTokens, url)) {
         const host = req.headers.host ?? "localhost";
         res.writeHead(401, {
           "Content-Type": "application/json",

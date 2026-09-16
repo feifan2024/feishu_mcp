@@ -98,6 +98,14 @@ node dist/index.js   # 需要以下环境变量
 }
 ```
 
+**不支持自定义请求头的客户端**（如 ChatGPT 网页版"连接器"）：把 token 放到 URL 查询参数里，认证方式选"无身份验证"：
+
+```
+https://mcp.example.com/mcp?token=<MCP_HTTP_TOKEN 的值>
+```
+
+> 注意：URL 方式的 token 可能出现在浏览器历史/代理日志中，仅在此类受限客户端下使用；如泄露可在服务器改 `MCP_HTTP_TOKEN` 后重启服务轮换。服务同时实现了 RFC 9728 `/.well-known/oauth-protected-resource` 元数据端点，规范客户端在 401 时不会误走 OAuth 自动发现。
+
 ### 方式 A：Docker
 
 ```bash
