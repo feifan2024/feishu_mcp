@@ -45,6 +45,26 @@ export async function startHttpServer(server: McpServer, config: FeishuMcpConfig
   const handler = async (req: http.IncomingMessage, res: http.ServerResponse): Promise<void> => {
     try {
       const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
+      const proto = String(req.headers["x-forwarded-proto"] ?? (config.tlsCert ? "https" : "http")).trim();
+
+      // OAuth 保护资源元数据（RFC 9728 / MCP 规范）：声明本服务用静态 Bearer token，
+      // 无授权服务器。客户端收到 401 时按此理解，避免误走 OAuth 自动发现报
+      // "does not implement OAuth"
+      if (url.pathname === "/.well-known/oauth-protected-resource") {
+        const host = req.headers.host ?? "localhost";
+        res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+        res.end(
+          JSON.stringify({
+            resource: `${proto}://${host}${MCP_PATH}`,
+            authorization_servers: [],
+            scopes_supported: ["feishu:read", "feishu:write"],
+            bearer_methods_supported: ["header"],
+            resource_documentation: "Static Bearer token auth: configure 'Authorization: Bearer <MCP_HTTP_TOKEN>' header in your MCP client.",
+          }),
+        );
+        return;
+      }
+
       if (url.pathname !== MCP_PATH) {
         res.writeHead(404, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: "not found，MCP 端点为 /mcp" }));
@@ -52,11 +72,12 @@ export async function startHttpServer(server: McpServer, config: FeishuMcpConfig
       }
 
       if (!authorize(req, validTokens)) {
+        const host = req.headers.host ?? "localhost";
         res.writeHead(401, {
           "Content-Type": "application/json",
-          "WWW-Authenticate": 'Bearer realm="feishu-mcp"',
+          "WWW-Authenticate": `Bearer realm="feishu-mcp", resource_metadata="${proto}://${host}/.well-known/oauth-protected-resource"`,
         });
-        res.end(JSON.stringify({ error: "未授权：缺少或错误的 Bearer token" }));
+        res.end(JSON.stringify({ error: "未授权：请在 MCP 客户端配置 Authorization: Bearer <token> 请求头" }));
         return;
       }
 
