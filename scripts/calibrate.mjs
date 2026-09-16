@@ -1,11 +1,12 @@
 /**
  * 真实链路校准：文档写读全链路 + 表格/多维表格读取。
- * 用法：node scripts/calibrate.mjs [docs|sheet|base|all]
+ * 用法：node scripts/calibrate.mjs [docs|sheet|base|all|basewrite|sheetwrite]
+ * 环境变量：SHEET_TOKEN（sheet 校准）、BASE_TOKEN（basewrite 校准）
  */
 import { spawn } from "node:child_process";
 
 const serverPath = new URL("../dist/index.js", import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1");
-const SHEET_TOKEN = "SHEET_TOKEN_PLACEHOLDER"; // 团队周报（只读校准）
+const SHEET_TOKEN = process.env.SHEET_TOKEN; // 指定一个你有权限的电子表格（只读校准）
 
 function rpc(id, method, params) {
   return JSON.stringify({ jsonrpc: "2.0", id, method, params }) + "\n";
